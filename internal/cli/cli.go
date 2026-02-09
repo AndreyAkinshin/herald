@@ -207,14 +207,6 @@ func Run(cfg *Config) error {
 		cfg.Output = filepath.Join(tempDir, repoInfo.Name+"-"+cfg.Tag+".md")
 	}
 
-	// Get release information
-	logVerbose(cfg, "Fetching release %s...", cfg.Tag)
-
-	_, err = github.GetRelease(cfg.Tag)
-	if err != nil {
-		return err
-	}
-
 	logVerbose(cfg, "Finding previous release...")
 
 	prevRelease, err := github.FindPreviousRelease(releases, cfg.Tag, git.TagExists)

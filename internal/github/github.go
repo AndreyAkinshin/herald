@@ -4,12 +4,19 @@ package github
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/AndreyAkinshin/herald/internal/errors"
+)
+
+const (
+	ghMaxRetries    = 3
+	ghRetryBaseWait = 2 * time.Second
 )
 
 // Release represents a GitHub release.
@@ -22,12 +29,8 @@ type Release struct {
 
 // CheckGHAvailable verifies the gh CLI is installed and authenticated.
 func CheckGHAvailable() error {
-	cmd := exec.Command("gh", "auth", "status")
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	_, err := runGH("auth", "status")
+	if err != nil {
 		return errors.Environment("gh CLI not available or not authenticated", err)
 	}
 
@@ -36,42 +39,17 @@ func CheckGHAvailable() error {
 
 // ListReleases returns all releases for the current repository.
 func ListReleases() ([]Release, error) {
-	cmd := exec.Command("gh", "release", "list", "--json", "tagName,publishedAt,isDraft,isPrerelease", "--limit", "999")
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	stdout, err := runGH("release", "list", "--json", "tagName,publishedAt,isDraft,isPrerelease", "--limit", "999")
+	if err != nil {
 		return nil, errors.Runtime("failed to list releases", err)
 	}
 
 	var releases []Release
-	if err := json.Unmarshal(stdout.Bytes(), &releases); err != nil {
+	if err := json.Unmarshal(stdout, &releases); err != nil {
 		return nil, errors.Runtime("failed to parse releases", err)
 	}
 
 	return releases, nil
-}
-
-// GetRelease fetches a specific release by tag.
-func GetRelease(tag string) (*Release, error) {
-	cmd := exec.Command("gh", "release", "view", tag, "--json", "tagName,publishedAt,isDraft,isPrerelease")
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, errors.Runtime("failed to get release "+tag, err)
-	}
-
-	var release Release
-	if err := json.Unmarshal(stdout.Bytes(), &release); err != nil {
-		return nil, errors.Runtime("failed to parse release", err)
-	}
-
-	return &release, nil
 }
 
 // FindPreviousRelease finds the release published immediately before the given tag.
@@ -125,12 +103,8 @@ func GetLatestRelease(releases []Release) (*Release, error) {
 
 // UpdateReleaseBody updates the release notes for a given tag.
 func UpdateReleaseBody(tag, notesFile string) error {
-	cmd := exec.Command("gh", "release", "edit", tag, "--notes-file", notesFile)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	_, err := runGH("release", "edit", tag, "--notes-file", notesFile)
+	if err != nil {
 		return errors.Runtime("failed to update release "+tag, err)
 	}
 
@@ -145,20 +119,57 @@ type RepoInfo struct {
 
 // GetRepoInfo returns the repository name and owner/name in a single gh call.
 func GetRepoInfo() (*RepoInfo, error) {
-	cmd := exec.Command("gh", "repo", "view", "--json", "name,nameWithOwner")
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	stdout, err := runGH("repo", "view", "--json", "name,nameWithOwner")
+	if err != nil {
 		return nil, errors.Runtime("failed to get repository info", err)
 	}
 
 	var info RepoInfo
-	if err := json.Unmarshal(stdout.Bytes(), &info); err != nil {
+	if err := json.Unmarshal(stdout, &info); err != nil {
 		return nil, errors.Runtime("failed to parse repository info", err)
 	}
 
 	return &info, nil
+}
+
+// runGH executes a gh CLI command with automatic retry on rate limiting (HTTP 429).
+// Returns stdout bytes on success, or an error containing stderr output.
+func runGH(args ...string) ([]byte, error) {
+	wait := ghRetryBaseWait
+
+	for attempt := range ghMaxRetries + 1 {
+		cmd := exec.Command("gh", args...)
+
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		if err := cmd.Run(); err != nil {
+			stderrStr := strings.TrimSpace(stderr.String())
+
+			if attempt < ghMaxRetries && isRateLimited(stderrStr) {
+				fmt.Printf("Rate limited by GitHub, retrying in %v...\n", wait)
+				time.Sleep(wait)
+				wait *= 2
+
+				continue
+			}
+
+			if stderrStr != "" {
+				return nil, fmt.Errorf("%s", stderrStr)
+			}
+
+			return nil, err
+		}
+
+		return stdout.Bytes(), nil
+	}
+
+	// Unreachable: the loop always returns on the last attempt
+	return nil, nil
+}
+
+// isRateLimited checks if a gh CLI error indicates GitHub API rate limiting.
+func isRateLimited(stderr string) bool {
+	return strings.Contains(stderr, "429")
 }

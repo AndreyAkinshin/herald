@@ -108,3 +108,22 @@ func TestGetLatestRelease_empty(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 }
+
+func TestIsRateLimited(t *testing.T) {
+	tests := []struct {
+		stderr string
+		want   bool
+	}{
+		{"non-200 OK status code: 429 Too Many Requests body: ...", true},
+		{"429", true},
+		{"not found", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		got := isRateLimited(tt.stderr)
+		if got != tt.want {
+			t.Errorf("isRateLimited(%q) = %v, want %v", tt.stderr, got, tt.want)
+		}
+	}
+}
