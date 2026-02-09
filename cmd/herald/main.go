@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/AndreyAkinshin/herald/internal/cli"
 	"github.com/AndreyAkinshin/herald/internal/errors"
@@ -19,7 +20,7 @@ func init() {
 	}
 
 	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
-		version = info.Main.Version
+		version = strings.TrimPrefix(info.Main.Version, "v")
 	}
 }
 
