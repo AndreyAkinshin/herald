@@ -92,8 +92,11 @@ Add herald as a tool and create a task in your project's `mise.toml`:
 
 [tasks.release-notes]
 description = "Generate release notes for a tag"
-usage = 'arg "<tag>"'
-run = "herald $usage_tag --dry-run"
+usage = '''
+arg "<tag>"
+arg "[instructions]"
+'''
+run = 'herald "$usage_tag" "$usage_instructions" --dry-run'
 ```
 
 Then run:
