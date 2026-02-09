@@ -1,4 +1,10 @@
 You are composing release notes for version {{.TargetTag}}.
+{{- if .Instructions}}
+
+## IMPORTANT: Custom Instructions (high priority, override defaults)
+
+{{.Instructions}}
+{{- end}}
 
 ## Git Commands Cheat-Sheet
 
@@ -30,10 +36,6 @@ If you need more context about any commit or file, use these commands:
 
 ## Output Format
 
-Output ONLY the release notes in Markdown format, without the heading.
-{{- if .Instructions}}
-
-## IMPORTANT: Custom Instructions (high priority, override defaults)
-
-{{.Instructions}}
-{{- end}}
+Output ONLY the release notes in Markdown format.
+Start each section with a `## ` heading (e.g. `## Features`, `## Bug Fixes`).
+Do not include a top-level `# ` heading.
