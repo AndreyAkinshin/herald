@@ -82,14 +82,13 @@ type Release struct {
 3. `github.GetRepoInfo()` — Fetch repo name and owner/name in one call
 4. `github.ListReleases()` — Fetch all releases once
 5. `github.GetLatestRelease()` — Resolve "last" to latest tag (if needed)
-6. `github.GetRelease()` — Verify target release exists
-7. `github.FindPreviousRelease()` — Find release before target by date
-8. `git.GetCommitDetails()` — Get commit messages and stat between tags
-9. `prompt.Generate()` — Build Claude prompt
-10. `claude.GenerateNotes()` — Invoke Claude CLI
-11. Save notes to file
-12. Display preview, prompt for confirmation
-13. `github.UpdateReleaseBody()` — Update release via gh CLI
+6. `github.FindPreviousRelease()` — Find release before target by date
+7. `git.GetCommitDetails()` — Get commit messages and stat between tags
+8. `prompt.Generate()` — Build Claude prompt
+9. `claude.GenerateNotes()` — Invoke Claude CLI
+10. Save notes to file
+11. Display preview, prompt for confirmation
+12. `github.UpdateReleaseBody()` — Update release via gh CLI
 
 ## Testing
 
