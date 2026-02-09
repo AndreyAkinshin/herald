@@ -36,11 +36,15 @@ run = "go mod download"
 [tasks.version]
 description = "Bump version, stage, and commit"
 usage = 'arg "<version>"'
-run = """
+run = '''
+if ! echo "$usage_version" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
+  echo "Error: version must contain only digits and dots (got: $usage_version)" >&2
+  exit 1
+fi
 echo "$usage_version" > VERSION
 git add VERSION
 git diff --cached --quiet && echo "Already at $usage_version" || git commit -m "chore: bump version to $usage_version"
-"""
+'''
 
 [tasks.publish]
 description = "Bump version, push, and trigger release"
