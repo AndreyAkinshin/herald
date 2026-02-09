@@ -36,6 +36,21 @@ func FindRepoRoot() (string, error) {
 	}
 }
 
+// FetchTags fetches tags from the remote so locally-missing tags
+// (e.g. tags created by CI) are available for git log.
+func FetchTags() error {
+	cmd := exec.Command("git", "fetch", "--tags", "--quiet")
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return errors.Runtime("failed to fetch tags", err)
+	}
+
+	return nil
+}
+
 // TagExists checks if a tag exists in the repository.
 func TagExists(tag string) bool {
 	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", tag)

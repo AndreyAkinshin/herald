@@ -166,6 +166,13 @@ func Run(cfg *Config) error {
 		return err
 	}
 
+	// Fetch remote tags so CI-created tags are available locally
+	logVerbose(cfg, "Fetching tags...")
+
+	if err := git.FetchTags(); err != nil {
+		return err
+	}
+
 	// Fetch all releases once
 	logVerbose(cfg, "Fetching releases...")
 
