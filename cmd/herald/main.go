@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/AndreyAkinshin/herald/internal/cli"
 	"github.com/AndreyAkinshin/herald/internal/errors"
@@ -11,6 +12,16 @@ import (
 )
 
 var version = "dev"
+
+func init() {
+	if version != "dev" {
+		return
+	}
+
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		version = info.Main.Version
+	}
+}
 
 func main() {
 	cfg, err := cli.ParseArgs(version, os.Args[1:])
