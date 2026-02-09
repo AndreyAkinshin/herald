@@ -54,8 +54,8 @@ run = [
 [tasks.release-notes]
 description = "Generate release notes for a tag"
 depends = ["build"]
-usage = 'arg "<tag>"'
-run = "bin/herald $usage_tag"
+usage = 'arg "<tag>" arg "[instructions]"'
+run = "bin/herald $usage_tag $usage_instructions"
 
 [tasks.ci]
 description = "Full CI pipeline"
