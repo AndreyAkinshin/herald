@@ -17,7 +17,12 @@ func CheckClaudeAvailable() error {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return errors.Environment("claude CLI not available", err)
+		msg := "claude CLI not available"
+		if s := strings.TrimSpace(stderr.String()); s != "" {
+			msg += ": " + s
+		}
+
+		return errors.Environment(msg, err)
 	}
 
 	return nil
@@ -39,14 +44,22 @@ func GenerateNotes(prompt string, model string) (string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", errors.Runtime("failed to generate notes with Claude", err)
+		msg := "failed to generate notes with Claude"
+		if s := strings.TrimSpace(stderr.String()); s != "" {
+			msg += ": " + s
+		}
+
+		return "", errors.Runtime(msg, err)
 	}
 
 	return stripPreamble(stdout.String()), nil
 }
 
-// stripPreamble removes a leading H1 heading (e.g. "# Release Notes for v1.2.0")
-// that Claude sometimes adds despite being told not to.
+// stripPreamble removes unwanted leading content that Claude sometimes adds:
+//   - A leading H1 heading (e.g. "# Release Notes for v1.2.0")
+//   - Conversational preamble ending with ":" (e.g. "Here are the release notes:")
+//     optionally followed by a thematic break ("---")
+//
 // Preserves everything else including introductory paragraphs before ## sections.
 func stripPreamble(output string) string {
 	lines := strings.Split(output, "\n")
@@ -61,22 +74,66 @@ func stripPreamble(output string) string {
 		return output
 	}
 
-	// Only strip if the first non-blank line is an H1
-	if headingLevel(lines[start]) != 1 {
-		return output
+	first := lines[start]
+
+	// Strip leading H1 heading
+	if headingLevel(first) == 1 {
+		return joinAfterSkippingBlanks(lines, start+1)
 	}
 
-	// Skip the H1 and any following blank lines
-	j := start + 1
-	for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
-		j++
+	// Strip conversational preamble: a non-heading line ending with ":"
+	// optionally followed by a "---" thematic break
+	if isConversationalPreamble(first) {
+		j := skipBlanks(lines, start+1)
+
+		if j < len(lines) && isThematicBreak(lines[j]) {
+			j = skipBlanks(lines, j+1)
+		}
+
+		if j < len(lines) {
+			return strings.Join(lines[j:], "\n")
+		}
+
+		return ""
 	}
 
+	return output
+}
+
+// joinAfterSkippingBlanks skips blank lines starting at index and joins the rest.
+func joinAfterSkippingBlanks(lines []string, from int) string {
+	j := skipBlanks(lines, from)
 	if j < len(lines) {
 		return strings.Join(lines[j:], "\n")
 	}
 
 	return ""
+}
+
+// skipBlanks returns the index of the first non-blank line at or after from.
+func skipBlanks(lines []string, from int) int {
+	for from < len(lines) && strings.TrimSpace(lines[from]) == "" {
+		from++
+	}
+
+	return from
+}
+
+// isConversationalPreamble returns true if the line looks like LLM preamble
+// (e.g. "Here are the release notes:") rather than release notes content.
+func isConversationalPreamble(line string) bool {
+	trimmed := strings.TrimSpace(line)
+
+	return len(trimmed) > 0 &&
+		trimmed[len(trimmed)-1] == ':' &&
+		headingLevel(line) == 0
+}
+
+// isThematicBreak returns true for markdown thematic breaks (---, ***, ___).
+func isThematicBreak(line string) bool {
+	trimmed := strings.TrimSpace(line)
+
+	return trimmed == "---" || trimmed == "***" || trimmed == "___"
 }
 
 // headingLevel returns the markdown heading level (1-6) or 0 if not a heading.

@@ -85,6 +85,103 @@ func TestStripPreamble_intro_before_h2(t *testing.T) {
 	}
 }
 
+func TestStripPreamble_conversational_with_separator(t *testing.T) {
+	input := "Here are the release notes:\n\n---\n\nThis release adds new features."
+	want := "This release adds new features."
+	got := stripPreamble(input)
+
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestStripPreamble_conversational_without_separator(t *testing.T) {
+	input := "Here are the release notes:\n\nThis release adds new features."
+	want := "This release adds new features."
+	got := stripPreamble(input)
+
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestStripPreamble_conversational_only(t *testing.T) {
+	input := "Here are the release notes:"
+	want := ""
+	got := stripPreamble(input)
+
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestStripPreamble_conversational_with_separator_only(t *testing.T) {
+	input := "Here are the release notes:\n\n---"
+	want := ""
+	got := stripPreamble(input)
+
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestStripPreamble_thematic_break_variants(t *testing.T) {
+	for _, sep := range []string{"---", "***", "___"} {
+		input := "Sure, here you go:\n\n" + sep + "\n\nContent."
+		want := "Content."
+		got := stripPreamble(input)
+
+		if got != want {
+			t.Errorf("separator %q: got %q, want %q", sep, got, want)
+		}
+	}
+}
+
+func TestIsConversationalPreamble(t *testing.T) {
+	tests := []struct {
+		line string
+		want bool
+	}{
+		{"Here are the release notes:", true},
+		{"Sure, here you go:", true},
+		{"Release notes for v1.2.0:", true},
+		{"This is a normal sentence.", false},
+		{"## Features:", false},
+		{"# Title:", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		got := isConversationalPreamble(tt.line)
+		if got != tt.want {
+			t.Errorf("isConversationalPreamble(%q) = %v, want %v", tt.line, got, tt.want)
+		}
+	}
+}
+
+func TestIsThematicBreak(t *testing.T) {
+	tests := []struct {
+		line string
+		want bool
+	}{
+		{"---", true},
+		{"***", true},
+		{"___", true},
+		{"  ---  ", true},
+		{"----", false},
+		{"- - -", false},
+		{"text", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		got := isThematicBreak(tt.line)
+		if got != tt.want {
+			t.Errorf("isThematicBreak(%q) = %v, want %v", tt.line, got, tt.want)
+		}
+	}
+}
+
 func TestHeadingLevel_h1(t *testing.T) {
 	if got := headingLevel("# Title"); got != 1 {
 		t.Errorf("got %d, want 1", got)
