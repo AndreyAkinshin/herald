@@ -271,6 +271,9 @@ func Run(cfg *Config) error {
 		fmt.Println()
 	}
 
+	// Remove previous release notes file so a stale result is never mistaken for a fresh one
+	_ = os.Remove(cfg.Output)
+
 	fmt.Println("Generating release notes with Claude...")
 
 	notes, err := claude.GenerateNotes(promptText, cfg.Model)
