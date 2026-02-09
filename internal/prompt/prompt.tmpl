@@ -1,0 +1,39 @@
+You are composing release notes for version {{.TargetTag}}.
+
+## Git Commands Cheat-Sheet
+
+If you need more context about any commit or file, use these commands:
+
+| Command | Description |
+|---------|-------------|
+| git show <hash> | Show full diff for a commit |
+| git show <hash>:<path> | Show file content at specific commit |
+| git show <hash>^:<path> | Show file content before the commit |
+| git diff <hash>^..<hash> -- <path> | Show diff for specific file in commit |
+| git log -p <hash> -1 | Show commit with full patch |
+{{- if .PrevTag}}
+| git diff {{.PrevTag}}^..{{.TargetTag}} -- <path> | Show diff for file between releases |
+{{- end}}
+
+## Commits
+
+{{.CommitDetails}}
+
+## Instructions
+
+- Write a brief summary (1-2 sentences) of this release
+- Group changes by: Breaking Changes, Features, Improvements, Bug Fixes, Documentation, Internal
+- Use bullet points, keep each item concise and user-focused
+- Reference PR/issue numbers if visible in commit messages (format: #123)
+- Omit empty sections
+- If commit messages or file lists are not enough to understand a change, use git commands above to explore
+
+## Output Format
+
+Output ONLY the release notes in Markdown format, without the heading.
+{{- if .Instructions}}
+
+## IMPORTANT: Custom Instructions (high priority, override defaults)
+
+{{.Instructions}}
+{{- end}}

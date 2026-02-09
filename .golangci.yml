@@ -1,0 +1,38 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable-all: true
+  disable:
+    # Too strict for this project
+    - exhaustruct
+    - varnamelen
+    - wrapcheck
+    - err113
+    - ireturn
+    - nlreturn
+    - wsl
+    - godox
+    - depguard
+
+linters-settings:
+  funlen:
+    lines: 100
+    statements: 50
+  lll:
+    line-length: 120
+  gocyclo:
+    min-complexity: 15
+  revive:
+    rules:
+      - name: unexported-return
+        disabled: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - dupl

@@ -1,0 +1,143 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+# ==========================================================================
+# Fast Checks
+# ==========================================================================
+
+jobs:
+  check:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: mise run check
+
+  tidy:
+    name: Tidy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: go mod tidy
+      - name: Check go.mod and go.sum are clean
+        run: git diff --exit-code -- go.mod go.sum
+
+  # ==========================================================================
+  # Core Tests
+  # ==========================================================================
+
+  test:
+    name: Test (${{ matrix.os }})
+    needs: [check, tidy]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: mise run test
+
+  # ==========================================================================
+  # Security
+  # ==========================================================================
+
+  vulncheck:
+    name: Vulnerability Check
+    needs: [check, tidy]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: govulncheck ./...
+
+  # ==========================================================================
+  # Release Build
+  # ==========================================================================
+
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: [test]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build -ldflags "-X main.version=$(cat VERSION)" -o herald${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/herald
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+
+      - name: Archive
+        run: tar czf herald-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz herald${{ matrix.goos == 'windows' && '.exe' || '' }}
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: herald-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: herald-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+  # ==========================================================================
+  # Publish
+  # ==========================================================================
+
+  publish:
+    name: Create Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read version
+        id: version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create tag
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Generate checksums
+        working-directory: artifacts
+        run: sha256sum *.tar.gz > checksums.txt
+
+      - name: Create GitHub release
+        run: gh release create "v${{ steps.version.outputs.version }}" --generate-notes artifacts/*.tar.gz artifacts/checksums.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

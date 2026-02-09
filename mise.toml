@@ -1,0 +1,69 @@
+[tools]
+go = "1.25"
+golangci-lint = "latest"
+
+[tasks.build]
+description = "Build the project"
+run = "go build -ldflags \"-X main.version=$(cat VERSION)\" -o bin/herald ./cmd/herald"
+
+[tasks."build:cross"]
+description = "Verify cross-compilation for all target platforms"
+run = [
+    "GOOS=windows GOARCH=amd64 go build ./...",
+    "GOOS=linux GOARCH=amd64 go build ./...",
+]
+
+[tasks.test]
+description = "Run tests"
+run = "go test -v -race ./..."
+
+[tasks.check]
+description = "Run all static analysis"
+run = "golangci-lint run"
+
+[tasks."check:fix"]
+description = "Auto-fix lint issues"
+run = "golangci-lint run --fix"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -rf bin/"
+
+[tasks.restore]
+description = "Download dependencies"
+run = "go mod download"
+
+[tasks.version]
+description = "Bump version, stage, and commit"
+usage = 'arg "<version>"'
+run = """
+echo "$usage_version" > VERSION
+git add VERSION
+git diff --cached --quiet && echo "Already at $usage_version" || git commit -m "chore: bump version to $usage_version"
+"""
+
+[tasks.publish]
+description = "Bump version, push, and trigger release"
+usage = 'arg "<version>"'
+run = [
+    "mise run version $usage_version",
+    "git push",
+    "gh workflow run publish.yml",
+]
+
+[tasks.release-notes]
+description = "Generate release notes for a tag"
+depends = ["build"]
+usage = 'arg "<tag>"'
+run = "bin/herald $usage_tag"
+
+[tasks.ci]
+description = "Full CI pipeline"
+run = [
+    { task = "clean" },
+    { task = "restore" },
+    { task = "check" },
+    { task = "build" },
+    { task = "build:cross" },
+    { task = "test" },
+]
