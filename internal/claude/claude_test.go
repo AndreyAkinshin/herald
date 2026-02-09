@@ -11,13 +11,12 @@ func TestStripPreamble_no_heading(t *testing.T) {
 	}
 }
 
-func TestStripPreamble_h1_with_preamble(t *testing.T) {
+func TestStripPreamble_text_before_h1(t *testing.T) {
 	input := "Here is some preamble text\n# Release v1.0\n\nActual content"
-	want := "Actual content"
 	got := stripPreamble(input)
 
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	if got != input {
+		t.Errorf("got %q, want %q", got, input)
 	}
 }
 
@@ -70,11 +69,19 @@ func TestStripPreamble_empty(t *testing.T) {
 
 func TestStripPreamble_issue_ref_not_heading(t *testing.T) {
 	input := "#123 is a bug\n## Changes\nSome content"
-	want := "## Changes\nSome content"
 	got := stripPreamble(input)
 
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	if got != input {
+		t.Errorf("got %q, want %q", got, input)
+	}
+}
+
+func TestStripPreamble_intro_before_h2(t *testing.T) {
+	input := "Introduction paragraph.\n\n## Features\n- item"
+	got := stripPreamble(input)
+
+	if got != input {
+		t.Errorf("got %q, want %q", got, input)
 	}
 }
 

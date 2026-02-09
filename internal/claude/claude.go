@@ -45,34 +45,38 @@ func GenerateNotes(prompt string, model string) (string, error) {
 	return stripPreamble(stdout.String()), nil
 }
 
-// stripPreamble removes any content before the first markdown heading,
-// and also strips the heading line itself along with any following blank lines.
+// stripPreamble removes a leading H1 heading (e.g. "# Release Notes for v1.2.0")
+// that Claude sometimes adds despite being told not to.
+// Preserves everything else including introductory paragraphs before ## sections.
 func stripPreamble(output string) string {
 	lines := strings.Split(output, "\n")
 
-	for i, line := range lines {
-		level := headingLevel(line)
-		if level == 0 {
-			continue
-		}
-
-		if level == 1 {
-			// Skip the heading line and any following blank lines
-			j := i + 1
-			for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
-				j++
-			}
-			if j < len(lines) {
-				return strings.Join(lines[j:], "\n")
-			}
-			return ""
-		}
-
-		// H2+: keep from here
-		return strings.Join(lines[i:], "\n")
+	// Find the first non-blank line
+	start := 0
+	for start < len(lines) && strings.TrimSpace(lines[start]) == "" {
+		start++
 	}
 
-	return output
+	if start >= len(lines) {
+		return output
+	}
+
+	// Only strip if the first non-blank line is an H1
+	if headingLevel(lines[start]) != 1 {
+		return output
+	}
+
+	// Skip the H1 and any following blank lines
+	j := start + 1
+	for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
+		j++
+	}
+
+	if j < len(lines) {
+		return strings.Join(lines[j:], "\n")
+	}
+
+	return ""
 }
 
 // headingLevel returns the markdown heading level (1-6) or 0 if not a heading.
